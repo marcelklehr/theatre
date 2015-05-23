@@ -16,13 +16,14 @@ module.exports = function(input, ctx) {
 }
 
 var types = {}
+module.exports.types = types
 
-types.Identifier = function (mem, str) {
+types.Symbol = function (mem, str) {
   this.memory = mem
   this.val = str
 }
-types.Identifier.prototype.dump = function() {
-  return "'"+this.val
+types.Symbol.prototype.dump = function() {
+  return '\''+this.val
 }
 
 types.Integer = function (mem, val) {
@@ -46,7 +47,7 @@ types.String = function (mem, val) {
   this.val = val
 }
 types.String.prototype.dump = function() {
-  return "'"+this.val+"'"
+  return '"'+this.val+'"'
 }
 
 types.List = function (mem, headPtr, tailPtr) {
@@ -61,6 +62,25 @@ types.List.prototype.dump = function(recurse) {
   return d
 }
 
+types.Actor = function(mem, ctx, nodes) {
+  this.context = ctx
+  this.memory = mem
+  this.nodes = nodes
+}
+types.Actor.prototype.receive = function(msgPtr) {
+
+}
+
+types.NativeActor = function(mem, parentCtx, fn) {
+  this.memory = mem
+  this.parentContext = parentCtx
+  this.actor = fn
+}
+types.NativeActor.prototype.receive = function(msgPtr, caller) {
+  var ctx = new Context(this.parentContext, caller)
+  return this.actor(ctx, msgPtr)
+}
+
 types.Error = function(msg, pos, stack, jsError) {
   this.message = msg
   this.loc = pos
@@ -70,6 +90,7 @@ types.Error = function(msg, pos, stack, jsError) {
 
 function Memory() {
   this.heap = {length: 1}
+  this.symbols = {}
 }
 module.exports.Memory = Memory
 Memory.prototype.put = function(val) {
@@ -81,57 +102,14 @@ Memory.prototype.get = function(addr) {
 }
 
 
-function Context() {
-  this.memory = new Memory
-  this.memory.heap[0] = new types.List(this.memory, 0, 0)
+function Context(ancestor, caller) {
+  this.ancestor = ancestor
+  this.caller = caller
   
-  this.names = {
-    nil: 0
-  }
+  this.names = {}
   
-  this.actors = {
-    '+': function(args) {
-      var sum = 0
-        , val
-      
-      for(var i=0; i<args.length; i++) {
-        val = this.memory.get(args[i])
-        if(!(val instanceof types.Integer)/* && !(val instanceof types.Float)*/) throw new Error('Actor "+" expects its arguments to be of type Integer or Float')
-        sum += val.val
-      }
-      
-      return this.memory.put(new types.Integer(this.memory, sum))
-    }
-  , 'print': function(args) {
-      var operand
-      for(var i=0; i<args.length; i++) {
-        operand = this.memory.get(args[i])
-        if('undefined' == typeof operand.val) throw new Error('Actor "print" expects only atoms')
-        if(i>0) this.appendOutput(' ')
-        this.appendOutput(operand.val)
-      }
-      this.appendOutput('\n')
-    }
-  , 'let': function(args) {
-      
-      var ident = this.memory.get(args[0])
-      if(!(ident instanceof types.Identifier)) throw new Error('Actor "let" requires a name as the first argument')
-      var name = ident.val
-      
-      names[name] = args[1]
-    }
-  , 'list': function(args) {
-      var list = 0
-        , item
-      
-      for(var i=args.length-1; i>=0; i--) {
-        item = args[i]
-        list = this.memory.put(new types.List(this.memory, item, list))
-      }
-      
-      return list
-    }
-  }
+  this.memory = ancestor? ancestor.memory : new Memory
+  if(!ancestor) this.memory.heap[0] = new types.List(this.memory, 0, 0)
 }
 module.exports.Context = Context
 
@@ -144,46 +122,63 @@ Context.prototype.resolveName = function(name) {
   return this.names[name]
 }
 
+Context.prototype.callActor = function(name, msg, caller) {
+  var actor = this.memory.get(this.resolveName(name))
+  if(!actor) throw new Error('Unknown actor "'+name+'"')
+  if(!(actor instanceof types.NativeActor) && !(actor instanceof types.Actor)) throw new Error('Identified value is not an actor: "'+name+'"')
+  return actor.receive(msg, caller) || 0
+}
+
+Context.prototype.typeFactory = function (type/*, ...*/) {
+  if(type == 'Symbol' && this.memory.symbols[arguments[1]]) return this.memory.get(this.memory.symbols[arguments[1]])
+  var obj = new types[type]
+  types[type].apply(obj, [this.memory].concat(Array.prototype.slice.call(arguments, 1)))
+  
+  return this.memory.put(obj)
+}
+
 //Execute an ast node
 //returns an addr
 Context.prototype.execute = function(node, stack) {
   try {
     switch(node.node) {
       case 'IDENTIFIER':
-        return this.resolveName(node.value)
+        if(node.quoted) return this.typeFactory('Symbol', node.value)
+        else return this.resolveName(node.value)
 
       case 'INTEGER':
-        return this.memory.put(new types.Integer(this.memory, node.value))
+        return this.typeFactory('Integer', node.value)
 
       case 'FLOAT':
-        return this.memory.put(new types.Float(this.memory, node.value))
+        return this.typeFactory('Float', node.value)
       
       case 'STRING':
-        return this.memory.put(new types.String(this.memory, node.value))
+        return this.typeFactory('String', node.value)
       
       case 'LIST':
-        if(!node.children.length) return this.throw(new types.Error('Empty expression', node.loc, stack))
+        var listPtr = 0
+        , itemPtr
+      
+        for(var i=node.children.length-1; i>=0; i--) {
+          itemPtr = this.execute(node.children[i])
+          listPtr = this.typeFactory('List', itemPtr, listPtr)
+        }
         
-        var ident = node.children[0].value
-          , fn = this.actors[ident]
+        // ACTOR CALL
+        if(node.children[0].node=='IDENTIFIER' && !node.quoted) { // What about returning an actor?
+          var args = this.memory.get(listPtr).tail
+          return this.callActor(node.children[0].value, args, /*caller:*/[this, node])
+        }
         
-        if(!fn) return this.throw(new types.Error('Unknown actor "'+ident+'"', node.loc, stack))
-        return fn.call(this, node.children.slice(1).map(function(node) {
-          return this.execute(node, stack)
-        }.bind(this))) || 0
+        return listPtr
     }
   }catch(e) {
     return this.throw(new types.Error(e.message, node.loc, stack, e))
   }
   
-  console.log(node)
-  throw new Error('Unrecognized node in ast tree')
+  throw new Error('Unrecognized node in ast tree '+JSON.stringify(node))
 }
 
 Context.prototype.throw = function(er) {
   this.uncaughtException(er)
-}
-
-Context.prototype.appendOutput = function(str) {
-  if(this.ancestor) this.ancestor.appendOutput(str)
 }
