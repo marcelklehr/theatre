@@ -137,9 +137,14 @@ Context.prototype.typeFactory = function (type/*, ...*/) {
   return this.memory.put(obj)
 }
 
+Context.prototype.getStack = function() {
+  if(!this.caller) return []
+  return [this.caller].concat(this.caller.getStack())
+}
+
 //Execute an ast node
 //returns an addr
-Context.prototype.execute = function(node, stack) {
+Context.prototype.execute = function(node) {
   try {
     switch(node.node) {
       case 'IDENTIFIER':
@@ -167,13 +172,13 @@ Context.prototype.execute = function(node, stack) {
         // ACTOR CALL
         if(node.children[0].node=='IDENTIFIER' && !node.quoted) { // What about returning an actor?
           var args = this.memory.get(listPtr).tail
-          return this.callActor(node.children[0].value, args, /*caller:*/[this, node])
+          return this.callActor(node.children[0].value, args, /*caller:*/{ctx: this, node: node})
         }
         
         return listPtr
     }
   }catch(e) {
-    return this.throw(new types.Error(e.message, node.loc, stack, e))
+    return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
   }
   
   throw new Error('Unrecognized node in ast tree '+JSON.stringify(node))
