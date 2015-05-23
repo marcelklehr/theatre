@@ -1,8 +1,11 @@
 var interpret = require('./interpreter')
+  , library = require('./library')
   , readline = require('readline')
 
 
 var ctx = new interpret.Context
+
+library(ctx)
 
 ctx.uncaughtException = function(er) {
   console.log('An error occurred:', er.message, 'at ', er.loc)
@@ -13,10 +16,6 @@ ctx.uncaughtException = function(er) {
 ctx.parseError = function(er) {
   console.log('Parse Error:', er.message)
   console.log(er.stack? er.stack : er)
-}
-
-ctx.appendOutput = function(str) {
-  process.stdout.write(str)
 }
 
 var rl = readline.createInterface({
