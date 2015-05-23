@@ -22,53 +22,70 @@ var lex = require('./lexer')
 module.exports = function parser(input) {
   var tokstream = lex(input)
     , stack = []
+    , token
+    , quoted
+    , q
 
-  tokstream.forEach(function(token) {
-  
-    if(lex.tokens.IDENTIFIER == token[0]) {
-      stack.push({node: 'IDENTIFIER', loc: token[1], value: token[2]})
-      return
-    }
-  
-    if(lex.tokens.LITERAL_LISTSTART == token[0]) {
-      stack.push(token)
-      return
-    }
+  for(var i=0; i<tokstream.length; i++) {
+    token = tokstream[i]
+    
+    q = stack.pop()
+    quoted = (q && q.node == 'QUOTE')
+    if(q && !quoted) stack.push(q)
     
     if(lex.tokens.LITERAL_LISTEND == token[0]) {
+      if(quoted) throw new Error('Cannot quote LISTEND at'+token[1])
       var l
         , items = []
       
-      // pop until we get to the LITERAL_LISTSTART token which
+      // pop until we get to the LITERAL_LISTSTART token
       while((l = stack.pop()) && lex.tokens.LITERAL_LISTSTART != l[0]) items.unshift(l)
       
       if(!l) throw new Error('Unexpected token '+token[0]+' at '+token[1])
 
-      stack.push({node: 'LIST', loc: l[1],  children: items})     // <---- USE INTERPRETER TYPES HERE!!! (?)  STRINGS ARE UNNECESSARY IF WE ALLOW QUOTATIONS (-> quote idents)!
-      return
+      stack.push({node: 'LIST', loc: l[1],  children: items, quoted: !!l[2]})
+      continue
+    }
+    
+    if(lex.tokens.IDENTIFIER == token[0]) {
+      stack.push({node: 'IDENTIFIER', loc: token[1], value: token[2], quoted: quoted})
+      continue
+    }
+    
+    if(lex.tokens.LITERAL_QUOTE == token[0]) {
+      stack.push({node: 'QUOTE', loc: token[1]})
+      continue
+    }
+  
+    if(lex.tokens.LITERAL_LISTSTART == token[0]) {
+      if(quoted) stack.push(token.concat(true))
+      else stack.push(token)
+      continue
     }
     
     if(lex.tokens.LITERAL_STRING == token[0]) {
-      stack.push({node: 'STRING', loc: token[1], value: token[2]})
-      return
+      stack.push({node: 'STRING', loc: token[1], value: token[2], quoted: quoted})
+      continue
     }
     
     if(lex.tokens.LITERAL_INTEGER == token[0]) {
-      stack.push({node: 'INTEGER', loc: token[1], value: parseInt(token[2])})
-      return
+      stack.push({node: 'INTEGER', loc: token[1], value: parseInt(token[2]), quoted: quoted})
+      continue
     }
     
     if(lex.tokens.LITERAL_FLOAT == token[0]) {
-      stack.push({node: 'FLOAT', loc: token[1], value: parseFloat(token[2])})
-      return
+      stack.push({node: 'FLOAT', loc: token[1], value: parseFloat(token[2]), quoted: quoted})
+      continue
     }
-  })
+  }
   
   // is the stack clean?
   stack.forEach(function(n) {
     if(n.node) return
     
-    if(lex.tokens.LITERAL_LISTSTART == n[0]) throw new Error('Unclosed parenthesis at '+n[1])
+    if(n[0]) {
+      if(n[0] == lex.tokens.LITERAL_LISTSTART) throw new Error('Unclosed parenthesis at '+n[1])
+    }
   })
   
   return stack
