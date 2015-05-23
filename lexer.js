@@ -24,11 +24,12 @@ module.exports = function lexer(input) {
     if(c == ')')
         tokstream.push([tokens.LITERAL_LISTEND, pos])
     else
-    if(c.match(/[0-9]/)) {
+    if(c.match(/[0-9.]/)) {
         var number = c
-          , floatingPoint = false
+          , floatingPoint = (c == '.')
         while(++i && input[i]) {
           if(input[i] == '.') {
+            if(floatingPoint) throw new Error('Number of type Float cannot have two floating points at position: '+pos)
             floatingPoint = true
             number += input[i]
           }else if(input[i].match(/[0-9]/)) {
@@ -58,7 +59,10 @@ module.exports = function lexer(input) {
           }
         }
         tokstream.push([tokens.LITERAL_STRING, pos, string])
-    }else if(c.match(/[^ 0-9)'"]/)){
+    }else
+    if(c == "'") {
+        tokstream.push([tokens.LITERAL_QUOTE, pos])
+    }else if(c.match(/[^ 0-9()'"]/)){
         var ident = c
         while(++i && input[i]) {
           if(m = input[i].match(/[0-9a-zA-Z:?+~_%!\/<>\^]/)) {
@@ -70,7 +74,7 @@ module.exports = function lexer(input) {
         }
         tokstream.push([tokens.IDENTIFIER, pos, ident])
     }else {
-         throw new Error('Unrecognised symbol at position: '+pos+' >> '+ c)
+         throw new Error('Unrecognised character at position: '+pos+' >> '+ c)
     }
   }
   
@@ -86,6 +90,7 @@ module.exports.tokens = {}
 , 'LITERAL_INTEGER'
 , 'LITERAL_FLOAT'
 , 'IDENTIFIER'
+, 'LITERAL_QUOTE'
 ].forEach(function(tok, i) {
   tokens[tok] = i
   if(DEBUG) tokens[tok] = tok
