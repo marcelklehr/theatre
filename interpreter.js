@@ -144,7 +144,7 @@ Context.prototype.getStack = function() {
 
 //Execute an ast node
 //returns an addr
-Context.prototype.execute = function(node) {
+Context.prototype.execute = function(node, enableThrow) {
   try {
     switch(node.node) {
       case 'IDENTIFIER':
@@ -165,7 +165,7 @@ Context.prototype.execute = function(node) {
         , itemPtr
       
         for(var i=node.children.length-1; i>=0; i--) {
-          itemPtr = this.execute(node.children[i])
+          itemPtr = this.execute(node.children[i], true)
           listPtr = this.typeFactory('List', itemPtr, listPtr)
         }
         
@@ -178,7 +178,9 @@ Context.prototype.execute = function(node) {
         return listPtr
     }
   }catch(e) {
-    return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
+    if(enableThrow) throw(new types.Error(e.message, node.loc, this.getStack(), e))
+    if(e.jsError) return this.throw(e)
+    else return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
   }
   
   throw new Error('Unrecognized node in ast tree '+JSON.stringify(node))
