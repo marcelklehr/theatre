@@ -12,8 +12,57 @@ module.exports = function(ctx) {
 
     while(args.head) {
       val = ctx.memory.get(args.head)
-      if(!(val instanceof interpreter.types.Integer)) throw new Error('"+" expects its arguments to be of type Integer')
+      if(!(val instanceof interpreter.types.Integer) && !(val instanceof interpreter.types.Float)) throw new Error('"+" expects its arguments to be of type Integer or Float')
       sum += val.val
+      args = ctx.memory.get(args.tail)
+    }
+
+    return ctx.memory.put(new interpreter.types.Integer(this.memory, sum))
+  })
+  
+  defineActor('-', function(ctx, args) {
+    args = ctx.memory.get(args)
+    var sum
+      , val
+
+    while(args.head) {
+      val = ctx.memory.get(args.head)
+      if(!(val instanceof interpreter.types.Integer) && !(val instanceof interpreter.types.Float)) throw new Error('"-" expects its arguments to be of type Integer or Float')
+      if("undefined" == typeof(sum)) sum = val.val
+      else sum -= val.val
+      args = ctx.memory.get(args.tail)
+    }
+
+    return ctx.memory.put(new interpreter.types.Integer(this.memory, sum))
+  })
+  
+  defineActor('*', function(ctx, args) {
+    args = ctx.memory.get(args)
+    var sum
+      , val
+
+    while(args.head) {
+      val = ctx.memory.get(args.head)
+      if(!(val instanceof interpreter.types.Integer) && !(val instanceof interpreter.types.Float)) throw new Error('"*" expects its arguments to be of type Integer or Float')
+      if("undefined" == typeof(sum)) sum = val.val
+      else sum *= val.val
+      args = ctx.memory.get(args.tail)
+    }
+
+    return ctx.memory.put(new interpreter.types.Integer(this.memory, sum))
+  })
+  
+  defineActor('/', function(ctx, args) {
+    args = ctx.memory.get(args)
+    var sum
+      , val
+
+    while(args.head) {
+      val = ctx.memory.get(args.head)
+      if(!(val instanceof interpreter.types.Integer) && !(val instanceof interpreter.types.Float)) throw new Error('"/" expects its arguments to be of type Integer or Float')
+      if("undefined" == typeof(sum)) sum = val.val
+      else if(val.val === 0) throw new Error('Division by zero')
+      else sum /= val.val
       args = ctx.memory.get(args.tail)
     }
 
