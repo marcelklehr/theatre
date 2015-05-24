@@ -142,14 +142,11 @@ Context.prototype.getStack = function() {
   return [this.caller].concat(this.caller.getStack())
 }
 
-//Execute an ast node
-//returns an addr
-Context.prototype.execute = function(node, enableThrow) {
+Context.prototype.quote = function(node) {
   try {
     switch(node.node) {
       case 'IDENTIFIER':
-        if(node.quoted) return this.typeFactory('Symbol', node.value)
-        else return this.resolveName(node.value)
+        return this.typeFactory('Symbol', node.value)
 
       case 'INTEGER':
         return this.typeFactory('Integer', node.value)
@@ -165,12 +162,64 @@ Context.prototype.execute = function(node, enableThrow) {
         , itemPtr
       
         for(var i=node.children.length-1; i>=0; i--) {
-          itemPtr = this.execute(node.children[i], true)
+          itemPtr = this.quote(node.children[i], true)
           listPtr = this.typeFactory('List', itemPtr, listPtr)
         }
         
+        return listPtr
+    }
+  }catch(e) {
+    if(enableThrow) throw(new types.Error(e.message, node.loc, this.getStack(), e))
+    if(e.jsError) return this.throw(e)
+    else return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
+  }
+  
+  throw new Error('Unrecognized node in ast tree '+JSON.stringify(node))
+}
+
+//Evaluate an ast node
+//returns an addr
+Context.prototype.execute = function(node, enableThrow) {
+  try {
+    switch(node.node) {
+      case 'IDENTIFIER':
+        return this.resolveName(node.value)
+
+      case 'INTEGER':
+        return this.typeFactory('Integer', node.value)
+
+      case 'FLOAT':
+        return this.typeFactory('Float', node.value)
+      
+      case 'STRING':
+        return this.typeFactory('String', node.value)
+      
+      case 'LIST':
+        
         // ACTOR CALL
-        if(node.children[0].node=='IDENTIFIER' && !node.quoted) { // What about returning an actor?
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quote') {
+          var quoteList = this.quote(node)
+          return this.memory.get(quoteList).tail
+        }else
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'list') {
+          var listPtr = 0
+          , itemPtr
+        
+          for(var i=node.children.length-1; i>0; i--) {
+            itemPtr = this.execute(node.children[i], true)
+            listPtr = this.typeFactory('List', itemPtr, listPtr)
+          }
+          return listPtr
+        } else
+        if(node.children[0]) {
+          var listPtr = 0
+          , itemPtr
+        
+          for(var i=node.children.length-1; i>=0; i--) {
+            itemPtr = this.execute(node.children[i], true)
+            listPtr = this.typeFactory('List', itemPtr, listPtr)
+          }
+          
           var args = this.memory.get(listPtr).tail
           return this.callActor(node.children[0].value, args, /*caller:*/{ctx: this, node: node})
         }
