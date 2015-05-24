@@ -9,13 +9,17 @@ library(ctx)
 
 ctx.uncaughtException = function(er) {
   console.log('Error:', er.message)
-  console.log(' at '+(er.stack[0].node? er.stack[0].node.children[0].value : 'anonymous actor')+' ('+er.loc+')')
-  for(var i=1; i <= er.stack.length; i++) {
-    var caller = er.stack[i], name
-    if(caller) name = (caller.node? caller.node.children[0].value : 'anonymous actor')
-    else name = ''
-    var loc = (er.stack[i-1].ctx.native? '<native code>' : er.stack[i-1].node.loc)
-    console.log(' at '+name+' ('+loc+')')
+  if(!er.stack[0]) {
+    console.log(' at '+er.loc)
+  }else {
+    console.log(' at '+(er.stack[0].node? er.stack[0].node.children[0].value : 'anonymous actor')+' ('+er.loc+')')
+    for(var i=1; i <= er.stack.length; i++) {
+      var caller = er.stack[i], name
+      if(caller) name = (caller.node? caller.node.children[0].value : 'anonymous actor')
+      else name = ''
+      var loc = (er.stack[i-1].ctx.native? '<native code>' : er.stack[i-1].node.loc)
+      console.log(' at '+name+' ('+loc+')')
+    }
   }
   if(er.jsError) console.log(er.jsError.stack? er.jsError.stack : er.jsError)
 }
