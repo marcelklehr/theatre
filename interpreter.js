@@ -62,13 +62,27 @@ types.List.prototype.dump = function(recurse) {
   return d
 }
 
-types.Actor = function(mem, ctx, nodes) {
-  this.context = ctx
+types.Actor = function(mem, parentCtx, args, nodes) {
+  this.parentContext = parentCtx
   this.memory = mem
+  this.args = args
   this.nodes = nodes
 }
-types.Actor.prototype.receive = function(msgPtr) {
+types.Actor.prototype.receive = function(msgPtr, caller) {
+  var ctx = new Context(this.parentContext, caller)
+    , msg = this.memory.get(msgPtr)
 
+  var head = msg.head
+    , list = this.memory.get(msg.tail)
+    , i=0
+  while(list && this.args[i]) {
+    ctx.bindName(this.args[i], head)
+    head = list.head
+    list = this.memory.get(list.tail)
+    i++
+  }
+  
+  return ctx.execute(this.nodes, /*enableThrow:*/true)
 }
 
 types.NativeActor = function(mem, parentCtx, fn) {
@@ -118,15 +132,19 @@ Context.prototype.bindName = function(name, addr) {
 }
 
 Context.prototype.resolveName = function(name) {
-  if(!this.names[name]) throw new Error('Can\'t resolve name "'+name+'"')
+  if(!this.names[name]) {
+    if(this.ancestor && this.ancestor.resolveName(name)) {
+      return this.ancestor.resolveName(name)
+    }else throw new Error('Can\'t resolve name "'+name+'"')
+  }
   return this.names[name]
 }
 
-Context.prototype.callActor = function(name, msg, caller) {
-  var actor = this.memory.get(this.resolveName(name))
-  if(!actor) throw new Error('Unknown actor "'+name+'"')
-  if(!(actor instanceof types.NativeActor) && !(actor instanceof types.Actor)) throw new Error('Identified value is not an actor: "'+name+'"')
-  return actor.receive(msg, caller) || 0
+Context.prototype.callActor = function(ptr, msgPtr, caller) {
+  var actor = this.memory.get(ptr)
+  if(!actor) throw new Error('Actor is not defined')
+  if(!(actor instanceof types.NativeActor) && !(actor instanceof types.Actor)) throw new Error('Value is not an actor')
+  return actor.receive(msgPtr, caller) || 0
 }
 
 Context.prototype.typeFactory = function (type/*, ...*/) {
@@ -139,7 +157,7 @@ Context.prototype.typeFactory = function (type/*, ...*/) {
 
 Context.prototype.getStack = function() {
   if(!this.caller) return []
-  return [this.caller].concat(this.caller.getStack())
+  return [this.caller].concat(this.caller.ctx.getStack())
 }
 
 Context.prototype.quote = function(node) {
@@ -196,11 +214,12 @@ Context.prototype.execute = function(node, enableThrow) {
       
       case 'LIST':
         
-        // ACTOR CALL
+        // QUOTE
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quote') {
           var quoteList = this.quote(node)
           return this.memory.get(quoteList).tail
         }else
+        // LIST
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'list') {
           var listPtr = 0
           , itemPtr
@@ -211,6 +230,20 @@ Context.prototype.execute = function(node, enableThrow) {
           }
           return listPtr
         } else
+        // LAMBDA
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'lambda') {
+          var args = []
+          if(node.children[1]) {
+            args = node.children[1].children.map(function(n) {
+              if(n.node != 'IDENTIFIER') throw new new types.Error('Arguments to lambda definition mst be identifiers', n.loc, this.getStack(), 1)
+              return n.value
+            }.bind(this))
+          }else throw new Error('Lambda expression must have a list of arguments')
+        
+          var actor = this.typeFactory('Actor', this, args, node.children[2])
+          return actor
+        } else
+        // ACTOR CALL
         if(node.children[0]) {
           var listPtr = 0
           , itemPtr
@@ -221,14 +254,13 @@ Context.prototype.execute = function(node, enableThrow) {
           }
           
           var args = this.memory.get(listPtr).tail
-          return this.callActor(node.children[0].value, args, /*caller:*/{ctx: this, node: node})
+          return this.callActor(itemPtr, args, /*caller:*/{ctx: this, node: node})
         }
-        
-        return listPtr
     }
   }catch(e) {
-    if(enableThrow) throw(new types.Error(e.message, node.loc, this.getStack(), e))
-    if(e.jsError) return this.throw(e)
+    if(enableThrow && !e.jsError) throw(new types.Error(e.message, node.loc, this.getStack(), e))
+    if(enableThrow && e.jsError) throw(e)
+    else if(e.jsError) return this.throw(e)
     else return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
   }
   
