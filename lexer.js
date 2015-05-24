@@ -77,11 +77,11 @@ module.exports = function lexer(input) {
          throw new Error('Unrecognised character at position: '+pos+' >> '+ c)
     }
   }
-  
+
   return tokstream
 }
 
-var tokens = 
+var tokens =
 module.exports.tokens = {}
 
 ;[ 'LITERAL_LISTSTART'
