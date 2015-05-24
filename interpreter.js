@@ -84,6 +84,9 @@ types.Actor.prototype.receive = function(msgPtr, caller) {
   
   return ctx.execute(this.nodes, /*enableThrow:*/true)
 }
+types.Actor.prototype.dump = function() {
+  return '<anonymous function>'
+}
 
 types.NativeActor = function(mem, parentCtx, fn) {
   this.memory = mem
@@ -93,6 +96,9 @@ types.NativeActor = function(mem, parentCtx, fn) {
 types.NativeActor.prototype.receive = function(msgPtr, caller) {
   var ctx = new Context(this.parentContext, caller)
   return this.actor(ctx, msgPtr)
+}
+types.NativeActor.prototype.dump = function() {
+  return '<native function>'
 }
 
 types.Error = function(msg, pos, stack, jsError) {
