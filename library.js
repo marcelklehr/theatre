@@ -22,7 +22,7 @@ module.exports = function(ctx) {
   
   defineActor('-', function(ctx, args) {
     args = ctx.memory.get(args)
-    var sum
+    var sum = 0
       , val
 
     while(args.head) {
@@ -38,7 +38,7 @@ module.exports = function(ctx) {
   
   defineActor('*', function(ctx, args) {
     args = ctx.memory.get(args)
-    var sum
+    var sum = 1
       , val
 
     while(args.head) {
@@ -54,7 +54,7 @@ module.exports = function(ctx) {
   
   defineActor('/', function(ctx, args) {
     args = ctx.memory.get(args)
-    var sum
+    var sum = 1
       , val
 
     while(args.head) {
@@ -83,4 +83,16 @@ module.exports = function(ctx) {
 
     return
   })
+  
+  defineActor(':', function(ctx, args) {
+    args = ctx.memory.get(args)
+
+    symbol = ctx.memory.get(args.head)
+    tail = ctx.memory.get(args.tail)
+    valueAddr = tail.head
+    ctx.caller.ctx.bindName(symbol.val, valueAddr)
+
+    return valueAddr
+  })
+  
 }
