@@ -37,7 +37,7 @@ module.exports = function(ctx) {
 
   defineActor('-', function(ctx, args) {
     args = ctx.memory.get(args)
-    var sum = 0
+    var sum
       , val
 
     while(args.head) {
@@ -59,8 +59,7 @@ module.exports = function(ctx) {
     while(args.head) {
       val = ctx.memory.get(args.head)
       if(!(val instanceof interpreter.types.Integer) && !(val instanceof interpreter.types.Float)) throw new Error('"*" expects its arguments to be of type Integer or Float')
-      if("undefined" == typeof(sum)) sum = val.val
-      else sum *= val.val
+      sum *= val.val
       args = ctx.memory.get(args.tail)
     }
 
@@ -69,7 +68,7 @@ module.exports = function(ctx) {
 
   defineActor('/', function(ctx, args) {
     args = ctx.memory.get(args)
-    var sum = 1
+    var sum
       , val
 
     while(args.head) {
