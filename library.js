@@ -4,7 +4,7 @@ module.exports = function(ctx) {
   function defineActor(name, fn) {
     ctx.bindName(name, ctx.typeFactory('NativeActor', ctx, fn))
   }
-  
+
   // Helper function to convert lists to js arrays
   function toArray(ctx, msgPtr) {
     var list = ctx.memory.get(msgPtr)
@@ -34,7 +34,7 @@ module.exports = function(ctx) {
 
     return ctx.memory.put(new interpreter.types.Integer(this.memory, sum))
   })
-  
+
   defineActor('-', function(ctx, args) {
     args = ctx.memory.get(args)
     var sum = 0
@@ -50,7 +50,7 @@ module.exports = function(ctx) {
 
     return ctx.memory.put(new interpreter.types.Integer(this.memory, sum))
   })
-  
+
   defineActor('*', function(ctx, args) {
     args = ctx.memory.get(args)
     var sum = 1
@@ -66,7 +66,7 @@ module.exports = function(ctx) {
 
     return ctx.memory.put(new interpreter.types.Integer(this.memory, sum))
   })
-  
+
   defineActor('/', function(ctx, args) {
     args = ctx.memory.get(args)
     var sum = 1
@@ -83,9 +83,9 @@ module.exports = function(ctx) {
 
     return ctx.memory.put(new interpreter.types.Integer(this.memory, sum))
   })
-  
-  defineActor('print', function print(ctx, args) {
-    args = ctx.memory.get(args)
+
+  defineActor('print', function print(ctx, argsPtr) {
+    var args = ctx.memory.get(argsPtr)
     var sum = 0
       , val
 
@@ -96,9 +96,9 @@ module.exports = function(ctx) {
     }
     process.stdout.write('\n')
 
-    return
+    return argsPtr
   })
-  
+
   defineActor('set', function set(ctx, args) {
     args = ctx.memory.get(args)
 
@@ -113,13 +113,13 @@ module.exports = function(ctx) {
   defineActor('map', function(ctx, msgPtr) {
     var args = toArray(ctx, msgPtr)
     var mapperFn = this.memory.get(args[0])
-    
+
     if(!(mapperFn instanceof interpreter.types.Actor)) {
       throw new Error('Expected actor as first argument')
     }
-    
+
     args = args.slice(1)
-    
+
     // Check list lengths and convert to arrays
     var length = toArray(ctx, args[0]).length
     args = args.map(function(l) {
@@ -129,7 +129,7 @@ module.exports = function(ctx) {
       }
       return array
     })
-    
+
     var resPtr = 0
     if(args[0]) {
       for(var i=args[0].length-1; i>=0; i--) {
