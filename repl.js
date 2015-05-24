@@ -10,7 +10,7 @@ library(ctx)
 ctx.uncaughtException = function(er) {
   console.log('An error occurred:', er.message, 'at ', er.loc)
   console.log(er.stack.map(function(caller) {
-    returncaller.node.children[0].value
+    return (caller.node.children[0].value || 'anonymous function') +' at '+caller.node.loc
   }).join('\n'))
   if(er.jsError) console.log(er.jsError.stack? er.jsError.stack : er.jsError)
 }
