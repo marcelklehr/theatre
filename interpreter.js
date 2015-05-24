@@ -70,23 +70,23 @@ types.Actor = function(mem, parentCtx, args, nodes) {
 }
 types.Actor.prototype.receive = function(msgPtr, caller) {
   var ctx = new Context(this.parentContext, caller)
-    , msg = this.memory.get(msgPtr)
+    , list = this.memory.get(msgPtr)
 
-  // Set actor arguments
-  var head = msg.head
-    , list = this.memory.get(msg.tail)
-    , i=0
-  while(list) {
-    if(this.args[i]) ctx.bindName(this.args[i], head)
-    head = list.head
+  // Get actor arguments
+  var args = []
+  while(list.head) {
+    args.push(list.head)
     list = this.memory.get(list.tail)
-    i++
   }
   
-  // Set left out arguments
-  if(i < this.args.length || i > this.args.length) {
-    throw new Error('Expected '+this.args.length+' arguments, but got '+(i-1))
+  // Check arity
+  if(args.length != this.args.length) {
+    throw new Error('Expected '+this.args.length+' arguments, but got '+args.length)
   }
+  
+  args.forEach(function(ptr, i) {
+    ctx.bindName(this.args[i], ptr)
+  }.bind(this))
   
   return ctx.execute(this.nodes, /*enableThrow:*/true)
 }
