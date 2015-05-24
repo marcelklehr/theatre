@@ -99,6 +99,14 @@ types.NativeActor = function(mem, parentCtx, fn) {
   this.parentContext = parentCtx
   this.actor = fn
 }
+types.NativeActor.prototype = Object.create(types.Actor.prototype, {
+  constructor: {
+    value: types.NativeActor,
+    enumerable: false,
+    writable: true,
+    configurable: true
+  }
+});
 types.NativeActor.prototype.receive = function(msgPtr, caller) {
   var ctx = new Context(this.parentContext, caller)
   return this.actor(ctx, msgPtr)
@@ -155,7 +163,7 @@ Context.prototype.resolveName = function(name) {
 Context.prototype.callActor = function(ptr, msgPtr, caller) {
   var actor = this.memory.get(ptr)
   if(!actor) throw new Error('Actor is not defined')
-  if(!(actor instanceof types.NativeActor) && !(actor instanceof types.Actor)) throw new Error('Value is not an actor')
+  if(!(actor instanceof types.Actor)) throw new Error('Value is not an actor')
   return actor.receive(msgPtr, caller) || 0
 }
 
