@@ -4,11 +4,11 @@ module.exports = function(input, ctx) {
   try {
     var parseTree = parse(input)
       , res
-    
+
     for(var i=0, l=parseTree.length; i<l; i++) {
       res = ctx.execute(parseTree[i])
     }
-    
+
     return res
   }catch(e) {
     ctx.parseError(e)
@@ -78,16 +78,16 @@ types.Actor.prototype.receive = function(msgPtr, caller) {
     args.push(list.head)
     list = this.memory.get(list.tail)
   }
-  
+
   // Check arity
   if(args.length != this.args.length) {
     throw new Error('Expected '+this.args.length+' arguments, but got '+args.length)
   }
-  
+
   args.forEach(function(ptr, i) {
     ctx.bindName(this.args[i], ptr)
   }.bind(this))
-  
+
   return ctx.execute(this.nodes, /*enableThrow:*/true)
 }
 types.Actor.prototype.dump = function() {
@@ -108,7 +108,7 @@ types.NativeActor.prototype = Object.create(types.Actor.prototype, {
   }
 });
 types.NativeActor.prototype.receive = function(msgPtr, caller) {
-  var ctx = new Context(this.parentContext, caller)
+  var ctx = new Context(this.parentContext, caller, /*native:*/true)
   return this.actor(ctx, msgPtr)
 }
 types.NativeActor.prototype.dump = function() {
@@ -136,12 +136,13 @@ Memory.prototype.get = function(addr) {
 }
 
 
-function Context(ancestor, caller) {
-  this.ancestor = ancestor
-  this.caller = caller
-  
+function Context(ancestor, caller, native) {
+  this.ancestor = ancestor || null
+  this.caller = caller || null
+  this.native = native ||false
+
   this.names = {}
-  
+
   this.memory = ancestor? ancestor.memory : new Memory
   if(!ancestor) this.memory.heap[0] = new types.List(this.memory, 0, 0)
 }
@@ -171,7 +172,7 @@ Context.prototype.typeFactory = function (type/*, ...*/) {
   if(type == 'Symbol' && this.memory.symbols[arguments[1]]) return this.memory.get(this.memory.symbols[arguments[1]])
   var obj = new types[type]
   types[type].apply(obj, [this.memory].concat(Array.prototype.slice.call(arguments, 1)))
-  
+
   return this.memory.put(obj)
 }
 
@@ -191,19 +192,19 @@ Context.prototype.quote = function(node) {
 
       case 'FLOAT':
         return this.typeFactory('Float', node.value)
-      
+
       case 'STRING':
         return this.typeFactory('String', node.value)
-      
+
       case 'LIST':
         var listPtr = 0
         , itemPtr
-      
+
         for(var i=node.children.length-1; i>=0; i--) {
           itemPtr = this.quote(node.children[i], true)
           listPtr = this.typeFactory('List', itemPtr, listPtr)
         }
-        
+
         return listPtr
     }
   }catch(e) {
@@ -211,7 +212,7 @@ Context.prototype.quote = function(node) {
     if(e.jsError) return this.throw(e)
     else return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
   }
-  
+
   throw new Error('Unrecognized node in ast tree '+JSON.stringify(node))
 }
 
@@ -231,12 +232,12 @@ Context.prototype.execute = function(node, enableThrow) {
 
       case 'FLOAT':
         return this.typeFactory('Float', node.value)
-      
+
       case 'STRING':
         return this.typeFactory('String', node.value)
-      
+
       case 'LIST':
-        
+
         // QUOTE
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quote') {
           return this.quote(node.children[1])
@@ -245,7 +246,7 @@ Context.prototype.execute = function(node, enableThrow) {
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'list') {
           var listPtr = 0
           , itemPtr
-        
+
           for(var i=node.children.length-1; i>0; i--) {
             itemPtr = this.execute(node.children[i], true)
             listPtr = this.typeFactory('List', itemPtr, listPtr)
@@ -261,7 +262,7 @@ Context.prototype.execute = function(node, enableThrow) {
               return n.value
             }.bind(this))
           }else throw new Error('Lambda expression must have a list of arguments')
-        
+
           var actor = this.typeFactory('Actor', this, args, node.children[2])
           return actor
         } else
@@ -269,12 +270,12 @@ Context.prototype.execute = function(node, enableThrow) {
         if(node.children[0]) {
           var listPtr = 0
           , itemPtr
-        
+
           for(var i=node.children.length-1; i>=0; i--) {
             itemPtr = this.execute(node.children[i], true)
             listPtr = this.typeFactory('List', itemPtr, listPtr)
           }
-          
+
           var args = this.memory.get(listPtr).tail
           return this.callActor(itemPtr, args, /*caller:*/{ctx: this, node: node})
         }
@@ -282,10 +283,10 @@ Context.prototype.execute = function(node, enableThrow) {
   }catch(e) {
     if(enableThrow && !e.jsError) throw(new types.Error(e.message, node.loc, this.getStack(), e))
     if(enableThrow && e.jsError) throw(e)
-    else if(e.jsError) return this.throw(e)
+    if(e.jsError) return this.throw(e)
     else return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
   }
-  
+
   throw new Error('Unrecognized node in ast tree '+JSON.stringify(node))
 }
 
