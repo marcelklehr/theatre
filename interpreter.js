@@ -225,8 +225,7 @@ Context.prototype.execute = function(node, enableThrow) {
         
         // QUOTE
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quote') {
-          var quoteList = this.quote(node)
-          return this.memory.get(quoteList).tail
+          return this.quote(node.children[1])
         }else
         // LIST
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'list') {
