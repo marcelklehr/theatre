@@ -69,7 +69,7 @@ module.exports = function(ctx) {
     return ctx.memory.put(new interpreter.types.Integer(this.memory, sum))
   })
   
-  defineActor('>', function(ctx, args) {
+  defineActor('print', function print(ctx, args) {
     args = ctx.memory.get(args)
     var sum = 0
       , val
@@ -84,15 +84,15 @@ module.exports = function(ctx) {
     return
   })
   
-  defineActor(':', function(ctx, args) {
+  defineActor('set', function set(ctx, args) {
     args = ctx.memory.get(args)
 
     symbol = ctx.memory.get(args.head)
-    tail = ctx.memory.get(args.tail)
-    valueAddr = tail.head
-    ctx.caller.ctx.bindName(symbol.val, valueAddr)
+    var tail = ctx.memory.get(args.tail)
+    var valuePtr = tail.head
+    ctx.caller.ctx.bindName(symbol.val, valuePtr)
 
-    return valueAddr
+    return valuePtr
   })
-  
+
 }
