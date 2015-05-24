@@ -59,6 +59,9 @@ module.exports = function lexer(input) {
           }
         }
         tokstream.push([tokens.LITERAL_STRING, pos, string])
+    }else
+    if(c == "'") {
+        tokstream.push([tokens.LITERAL_QUOTE, pos])
     }else if(c.match(/[^ 0-9()'"]/)){
         var ident = c
         while(++i && input[i]) {

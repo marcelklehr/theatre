@@ -29,7 +29,12 @@ module.exports = function parser(input) {
   for(var i=0; i<tokstream.length; i++) {
     token = tokstream[i]
     
+    q = stack.pop()
+    quoted = (q && q.node == 'QUOTE')
+    if(q && !quoted) stack.push(q)
+    
     if(lex.tokens.LITERAL_LISTEND == token[0]) {
+      if(quoted) throw new Error('Cannot quote LISTEND at'+token[1])
       var l
         , items = []
       
@@ -46,9 +51,15 @@ module.exports = function parser(input) {
       stack.push({node: 'IDENTIFIER', loc: token[1], value: token[2], quoted: quoted})
       continue
     }
+    
+    if(lex.tokens.LITERAL_QUOTE == token[0]) {
+      stack.push({node: 'QUOTE', loc: token[1]})
+      continue
+    }
   
     if(lex.tokens.LITERAL_LISTSTART == token[0]) {
-      stack.push(token)
+      if(quoted) stack.push(token.concat(true))
+      else stack.push(token)
       continue
     }
     

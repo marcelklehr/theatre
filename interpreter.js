@@ -199,6 +199,9 @@ Context.prototype.quote = function(node) {
 //returns an addr
 Context.prototype.execute = function(node, enableThrow) {
   try {
+    if(node.quoted) {
+      return this.quote(node, true)
+    }
     switch(node.node) {
       case 'IDENTIFIER':
         return this.resolveName(node.value)
