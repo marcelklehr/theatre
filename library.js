@@ -4,6 +4,21 @@ module.exports = function(ctx) {
   function defineActor(name, fn) {
     ctx.bindName(name, ctx.typeFactory('NativeActor', ctx, fn))
   }
+  
+  // Helper function to convert lists to js arrays
+  function toArray(ctx, msgPtr) {
+    var list = ctx.memory.get(msgPtr)
+    if(!(list instanceof interpreter.types.List)) {
+      throw new Error('Expected a list')
+    }
+    // Get actor arguments
+    var args = []
+    while(list.head) {
+      args.push(list.head)
+      list = ctx.memory.get(list.tail)
+    }
+    return args
+  }
 
   defineActor('+', function(ctx, args) {
     args = ctx.memory.get(args)
@@ -95,4 +110,38 @@ module.exports = function(ctx) {
     return valuePtr
   })
 
+  defineActor('map', function(ctx, msgPtr) {
+    var args = toArray(ctx, msgPtr)
+    var mapperFn = this.memory.get(args[0])
+    
+    if(!(mapperFn instanceof interpreter.types.Actor)) {
+      throw new Error('Expected actor as first argument')
+    }
+    
+    args = args.slice(1)
+    
+    // Check list lengths and convert to arrays
+    var length = toArray(ctx, args[0]).length
+    args = args.map(function(l) {
+      var array = toArray(ctx, l)
+      if(array.length !== length) {
+        throw new Error('Expected lists to be of equal lengths')
+      }
+      return array
+    })
+    
+    var resPtr = 0
+    if(args[0]) {
+      for(var i=args[0].length-1; i>=0; i--) {
+        var argsPtr = 0
+        for(var j=0; j<args.length; j++) {
+          var list = new interpreter.types.List(ctx.memory, args[j][i], argsPtr)
+          argsPtr = ctx.memory.put(list)
+        }
+        var result = mapperFn.receive(argsPtr, {ctx: ctx})
+        resPtr = ctx.memory.put(new interpreter.types.List(ctx.memory, result, resPtr))
+      }
+    }
+    return resPtr
+  })
 }
