@@ -170,8 +170,13 @@ function Context(ancestor, caller, native) {
 }
 module.exports.Context = Context
 
-Context.prototype.bindName = function(name, addr) {
+Context.prototype.bindName = function(name, addr, recurse) {
+  if(!this.names[name]) {
+    if(this.ancestor && this.ancestor.bindName(name, addr, true)) return true
+    if(recurse === true) return false
+  }
   this.names[name] = addr
+  return true
 }
 
 Context.prototype.resolveName = function(name) {
