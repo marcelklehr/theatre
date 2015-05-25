@@ -141,6 +141,7 @@ module.exports = function(ctx) {
         resPtr = ctx.memory.put(new interpreter.types.List(ctx.memory, result, resPtr))
       }
     }
+
     return resPtr
   })
 }

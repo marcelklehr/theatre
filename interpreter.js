@@ -103,7 +103,13 @@ types.NativeActor.prototype = Object.create(types.Actor.prototype, {
 });
 types.NativeActor.prototype.receive = function(msgPtr, caller) {
   var ctx = new Context(this.parentContext, caller, /*native:*/true)
-  return this.actor(ctx, msgPtr)
+
+  try {
+    var ret = this.actor(ctx, msgPtr)
+  }catch(e) {
+      throw(new types.Error(e.message, null, ctx.getStack(), e))
+  }
+  return ret
 }
 types.NativeActor.prototype.dump = function() {
   return '<native actor>'
