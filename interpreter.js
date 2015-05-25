@@ -3,13 +3,7 @@ var parse = require('./parser')
 module.exports = function(input, ctx) {
   try {
     var parseTree = parse(input)
-      , res
-
-    for(var i=0, l=parseTree.length; i<l; i++) {
-      res = ctx.execute(parseTree[i])
-    }
-
-    return res
+    return Continuation.run(ctx, parseTree)
   }catch(e) {
     ctx.parseError(e)
   }
@@ -88,7 +82,7 @@ types.Actor.prototype.receive = function(msgPtr, caller) {
     ctx.bindName(this.args[i], ptr)
   }.bind(this))
 
-  return ctx.execute(this.nodes, /*enableThrow:*/true)
+  return Continuation.run(ctx, this.nodes, /*enableThrow:*/true)
 }
 types.Actor.prototype.dump = function() {
   return '<anonymous actor>'
@@ -121,6 +115,28 @@ types.Error = function(msg, pos, stack, jsError) {
   this.stack = stack
   this.jsError = jsError
 }
+
+
+function Continuation(ctx, nodes, index) {
+  this.ctx = ctx
+  this.nodes = nodes
+  this.index = index
+}
+Continuation.prototype.dump = function() {
+  return '<continuation:'+this.nodes[this.index].loc+'>'
+}
+Continuation.prototype.play = function() {
+  Continuation.run(this.ctx, this.nodes.slice(this.index+1))
+}
+Continuation.run = function(ctx, nodes, enableThrow) {
+  var ret
+  for(var i=0; i<nodes.length; i++) {
+    ret = ctx.execute(nodes[i], enableThrow, new Continuation(ctx, nodes, i))
+    if(ret == -1) break
+  }
+  return ret
+}
+
 
 function Memory() {
   this.heap = {length: 1}
@@ -218,7 +234,7 @@ Context.prototype.quote = function(node) {
 
 //Evaluate an ast node
 //returns an addr
-Context.prototype.execute = function(node, enableThrow) {
+Context.prototype.execute = function(node, enableThrow, continuation) {
   try {
     if(node.quoted) {
       return this.quote(node, true)
@@ -263,8 +279,17 @@ Context.prototype.execute = function(node, enableThrow) {
             }.bind(this))
           }else throw new Error('Lambda expression must have a list of arguments')
 
-          var actor = this.typeFactory('Actor', this, args, node.children[2])
+          var actor = this.typeFactory('Actor', this, args, node.children.slice(2))
           return actor
+        } else
+        // CALLCC
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'callcc') {
+          if(!node.children[1]) throw new Error('Argument missing. "callcc" expects 1 argument')
+          var actor = this.execute(node.children[1])
+          if(!(this.memory.get(actor) instanceof types.Actor)) throw new Error('Argument to "callcc" must be an actor')
+          var args = this.typeFactory('List', this.memory.put(continuation), 0)
+          this.callActor(actor, args, {ctx: this, node: node})
+          return -1 // stops execution of current continuation
         } else
         // ACTOR CALL
         if(node.children[0]) {
@@ -272,11 +297,19 @@ Context.prototype.execute = function(node, enableThrow) {
           , itemPtr
 
           for(var i=node.children.length-1; i>=0; i--) {
-            itemPtr = this.execute(node.children[i], true)
+            itemPtr = this.execute(node.children[i], true, new Continuation(this, node.children, i))
+            if(itemPtr == -1) return -1
             listPtr = this.typeFactory('List', itemPtr, listPtr)
           }
 
           var args = this.memory.get(listPtr).tail
+
+          var cont
+          if((cont = this.memory.get(itemPtr)) instanceof Continuation) {
+            cont.play()
+            return -1
+          }
+
           return this.callActor(itemPtr, args, /*caller:*/{ctx: this, node: node})
         }
     }

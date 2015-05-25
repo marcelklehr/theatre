@@ -37,7 +37,7 @@ var rl = readline.createInterface({
 rl.on('line', function(line) {
   var ptr = interpret(line, ctx)
   //console.log(ptr)
-  if('undefined' !== typeof(ptr)) console.log(ctx.memory.get(ptr).dump())
+  if('undefined' !== typeof(ptr) && 'undefined' !== typeof(ctx.memory.get(ptr))) console.log(ctx.memory.get(ptr).dump())
   rl.prompt()
 })
 
