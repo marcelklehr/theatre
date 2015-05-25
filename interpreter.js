@@ -1,8 +1,8 @@
 var parse = require('./parser')
 
-module.exports = function(input, ctx) {
+module.exports = function(input, ctx, filename) {
   try {
-    var parseTree = parse(input)
+    var parseTree = parse(input, filename)
     return Continuation.run(ctx, parseTree)
   }catch(e) {
     ctx.parseError(e)

@@ -7,7 +7,7 @@ var DEBUG = true
  * Token names are defined in `lexer.tokens`.
  * A token is represented by [token name:(int/string in dbg mode) , position:int, value:string]
  */
-module.exports = function lexer(input) {
+module.exports = function lexer(input, filename) {
   var c
     , tokstream = []
     , pos
@@ -19,10 +19,10 @@ module.exports = function lexer(input) {
     if(c.match(/[\r\n ]/)) void(0)
     else
     if(c == '(')
-        tokstream.push([tokens.LITERAL_LISTSTART, pos])
+        tokstream.push([tokens.LITERAL_LISTSTART, filename+':'+pos])
     else
     if(c == ')')
-        tokstream.push([tokens.LITERAL_LISTEND, pos])
+        tokstream.push([tokens.LITERAL_LISTEND, filename+':'+pos])
     else
     if(c.match(/[0-9.]/)) {
         var number = c
@@ -39,8 +39,8 @@ module.exports = function lexer(input) {
             break;
           }
         }
-        if(floatingPoint) tokstream.push([tokens.LITERAL_FLOAT, pos, number])
-        else tokstream.push([tokens.LITERAL_INTEGER, pos, number])
+        if(floatingPoint) tokstream.push([tokens.LITERAL_FLOAT, filename+':'+pos, number])
+        else tokstream.push([tokens.LITERAL_INTEGER, filename+':'+pos, number])
     }else
     if(c == '"') {
         var string = ''
@@ -58,10 +58,10 @@ module.exports = function lexer(input) {
             if(escape) escape = !escape
           }
         }
-        tokstream.push([tokens.LITERAL_STRING, pos, string])
+        tokstream.push([tokens.LITERAL_STRING, filename+':'+pos, string])
     }else
     if(c == "'") {
-        tokstream.push([tokens.LITERAL_QUOTE, pos])
+        tokstream.push([tokens.LITERAL_QUOTE, filename+':'+pos])
     }else if(c.match(/[^ 0-9()'"]/)){
         var ident = c
         while(++i && input[i]) {
@@ -72,7 +72,7 @@ module.exports = function lexer(input) {
             break;
           }
         }
-        tokstream.push([tokens.IDENTIFIER, pos, ident])
+        tokstream.push([tokens.IDENTIFIER, filename+':'+pos, ident])
     }else {
          throw new Error('Unrecognised character at position: '+pos+' >> '+ c)
     }

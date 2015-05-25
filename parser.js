@@ -19,8 +19,8 @@ var lex = require('./lexer')
  *  - FLOAT
  *  - STRING
  */
-module.exports = function parser(input) {
-  var tokstream = lex(input)
+module.exports = function parser(input, filename) {
+  var tokstream = lex(input, filename)
     , stack = []
     , token
     , quoted
