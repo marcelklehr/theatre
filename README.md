@@ -41,6 +41,29 @@ and check out...
 ( 5 5 5 ) # heh!
 ```
 
+### continuations
+```
+(set 'continuation-in-my-pocket 0)
+(set 'counter (lambda(x)
+  (set 'i x)
+  (callcc (lambda(c)(set 'continuation-in-my-pocket c)))
+  (set 'i (+ i 1))
+  i
+))
+(print (counter 2))
+(print (continuation-in-my-pocket))
+(print (continuation-in-my-pocket))
+```
+```
+3
+4
+5
+```
+(Here, we put the current status away into our pocket, `counter` returns `3` -- so far so good.
+Now to the crazy part: we call that continuation in our pocket, and *magic*: we're inside that `counter` function again and return `4`.  And the same again: `5`. Continuations ftw!) 
+
+
+
 ## to-do
 * macros
 * static type system + type inference
