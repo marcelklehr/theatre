@@ -132,7 +132,7 @@ Continuation.prototype.dump = function() {
   return '<continuation:'+this.nodes[this.index].loc+'>'
 }
 Continuation.prototype.play = function() {
-  Continuation.run(this.ctx, this.nodes.slice(this.index+1))
+  return Continuation.run(this.ctx, this.nodes.slice(this.index+1))
 }
 Continuation.run = function(ctx, nodes, enableThrow) {
   var ret
@@ -300,7 +300,7 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
           if(!(this.memory.get(actor) instanceof types.Actor)) throw new Error('Argument to "callcc" must be an actor')
           var args = this.typeFactory('List', this.memory.put(continuation), 0)
           this.callActor(actor, args, {ctx: this, node: node})
-          return -1 // stops execution of current continuation
+          return 0 // stops execution of current continuation
         } else
         // ACTOR CALL
         if(node.children[0]) {
@@ -317,8 +317,7 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
 
           var cont
           if((cont = this.memory.get(itemPtr)) instanceof Continuation) {
-            cont.play()
-            return -1
+            return cont.play()
           }
 
           return this.callActor(itemPtr, args, /*caller:*/{ctx: this, node: node})
