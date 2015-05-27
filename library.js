@@ -144,4 +144,35 @@ module.exports = function(ctx) {
 
     return resPtr
   })
+  
+  defineActor('head', function(ctx, msgPtr) {
+    var list = ctx.memory.get(ctx.memory.get(msgPtr).head)
+    
+    if(!list || !(list instanceof interpreter.types.List)) {
+      throw new Error('Expected list as first argument')
+    }
+
+    return list.head
+  })
+  
+  defineActor('tail', function(ctx, msgPtr) {
+    var list = ctx.memory.get(ctx.memory.get(msgPtr).head)
+    
+    if(!list || !(list instanceof interpreter.types.List)) {
+      throw new Error('Expected list as first argument')
+    }
+
+    return list.tail
+  })
+  
+  defineActor('concat', function(ctx, msgPtr) {
+    var list = toArray(ctx, msgPtr)
+    
+    var string = ""
+    list.forEach(function(ptr) {
+      string += ctx.memory.get(ptr).val
+    })
+
+    return ctx.memory.put(new interpreter.types.String(ctx.memory, string))
+  })
 }
