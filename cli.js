@@ -32,5 +32,6 @@ ctx.parseError = function(er) {
 }
 
 fs.readFile(process.argv[2], function(er,blob) {
+  if(er) throw er
   interpret(blob.toString(), ctx, process.argv[2])
 })
