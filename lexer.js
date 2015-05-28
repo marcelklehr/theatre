@@ -10,11 +10,15 @@ var DEBUG = true
 module.exports = function lexer(input, filename) {
   var c
     , tokstream = []
+    , line = 1
+    , char = 1
     , pos
 
-  for(var i=0, l=input.length; i<l;i++) {
+  for(var i=0, l=input.length; i<l;i++,char++) {
     c = input[i]
-    pos = i
+    pos = line+':'+char
+    
+    if(c === '\n') line++ && (char = 1)
 
     if(c.match(/[\r\n ]/)) void(0)
     else
