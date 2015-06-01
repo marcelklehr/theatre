@@ -1,8 +1,10 @@
 var parse = require('./parser')
+  , DEBUG = false
 
 module.exports = function(input, ctx, filename) {
   try {
     var parseTree = parse(input, filename)
+    if(DEBUG) console.log(JSON.stringify(parseTree, null, '\t'))
     return Continuation.run(ctx, parseTree)
   }catch(e) {
     ctx.parseError(e)
@@ -235,22 +237,64 @@ Context.prototype.quote = function(node) {
         return listPtr
     }
   }catch(e) {
-    if(enableThrow) throw(new types.Error(e.message, node.loc, this.getStack(), e))
-    if(e.jsError) return this.throw(e)
-    else return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
+    if(e.jsError) throw(e)
+    else throw(new types.Error(e.message, node.loc, this.getStack(), e))
   }
 
-  throw new Error('Unrecognized node in ast tree '+JSON.stringify(node))
+  throw new Error('Unrecognized node in ast tree at '+node.loc+': '+JSON.stringify(node))
+}
+
+
+Context.prototype.quasiquote = function(node, continuation) {
+  try {
+    switch(node.node) {
+      case 'QUASIQUOTE_INTERP':
+        return this.execute(node.children[0], true, continuation)
+      case 'IDENTIFIER':
+        return this.typeFactory('Symbol', node.value)
+
+      case 'INTEGER':
+        return this.typeFactory('Integer', node.value)
+
+      case 'FLOAT':
+        return this.typeFactory('Float', node.value)
+
+      case 'STRING':
+        return this.typeFactory('String', node.value)
+
+      case 'LIST':
+        var listPtr = 0
+        , itemPtr
+
+        for(var i=node.children.length-1; i>=0; i--) {
+          itemPtr = this.quasiquote(node.children[i], true)
+          listPtr = this.typeFactory('List', itemPtr, listPtr)
+        }
+
+        return listPtr
+    }
+  }catch(e) {
+    if(e.jsError) throw(e)
+    throw(new types.Error(e.message, node.loc, this.getStack(), e))
+  }
+
+  throw new Error('Unrecognized node in ast tree at '+node.loc+': '+JSON.stringify(node))
 }
 
 //Evaluate an ast node
 //returns an addr
 Context.prototype.execute = function(node, enableThrow, continuation) {
   try {
-    if(node.quoted) {
-      return this.quote(node, true)
-    }
     switch(node.node) {
+      case 'QUOTE':
+        return this.quote(node.children[0])
+
+      case 'QUASIQUOTE':
+        return this.quasiquote(node.children[0], continuation)
+
+      case 'QUASIQUOTE_INTERP':
+        throw new Error('Cannot interpolate when not in quasiquoting context')
+
       case 'IDENTIFIER':
         return this.resolveName(node.value)
 
@@ -330,7 +374,7 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
     else return this.throw(new types.Error(e.message, node.loc, this.getStack(), e))
   }
 
-  throw new Error('Unrecognized node in ast tree '+JSON.stringify(node))
+  throw new Error('Unrecognized node in ast tree at '+node.loc+': '+JSON.stringify(node))
 }
 
 Context.prototype.throw = function(er) {

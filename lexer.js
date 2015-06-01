@@ -17,7 +17,7 @@ module.exports = function lexer(input, filename) {
   for(var i=0, l=input.length; i<l;i++,char++) {
     c = input[i]
     pos = line+':'+char
-    
+
     if(c === '\n') line++ && (char = 1)
 
     if(c.match(/[\r\n ]/)) void(0)
@@ -66,7 +66,7 @@ module.exports = function lexer(input, filename) {
     }else
     if(c == "'") {
         tokstream.push([tokens.LITERAL_QUOTE, filename+':'+pos])
-    }else if(c.match(/[^ 0-9()'"]/)){
+    }else if(c.match(/[^ 0-9()'`,"]/)){
         var ident = c
         while(++i && input[i]) {
           if(m = input[i].match(/[0-9a-zA-Z:?+~_%!\/<>\^]/)) {
@@ -77,7 +77,13 @@ module.exports = function lexer(input, filename) {
           }
         }
         tokstream.push([tokens.IDENTIFIER, filename+':'+pos, ident])
-    }else {
+    }else
+    if(c == '`'){
+        tokstream.push([tokens.LITERAL_QUASIQUOTE, filename+':'+pos, ident])
+    }else
+    if(c == ','){
+        tokstream.push([tokens.LITERAL_QUASIQUOTE_INTERP, filename+':'+pos, ident])
+    }else{
          throw new Error('Unrecognised character at position: '+pos+' >> '+ c)
     }
   }
@@ -95,6 +101,8 @@ module.exports.tokens = {}
 , 'LITERAL_FLOAT'
 , 'IDENTIFIER'
 , 'LITERAL_QUOTE'
+, 'LITERAL_QUASIQUOTE'
+, 'LITERAL_QUASIQUOTE_INTERP'
 ].forEach(function(tok, i) {
   tokens[tok] = i
   if(DEBUG) tokens[tok] = tok
