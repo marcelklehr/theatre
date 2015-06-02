@@ -15,6 +15,7 @@ var types = {}
 module.exports.types = types
 
 types.Symbol = function (mem, str) {
+  this.type = 'Symbol'
   this.memory = mem
   this.val = str
 }
@@ -23,6 +24,7 @@ types.Symbol.prototype.dump = function() {
 }
 
 types.Integer = function (mem, val) {
+  this.type = 'Integer'
   this.memory = mem
   this.val = val
 }
@@ -31,6 +33,7 @@ types.Integer.prototype.dump = function() {
 }
 
 types.Float = function (mem, val) {
+  this.type = 'Float'
   this.memory = mem
   this.val = val
 }
@@ -39,6 +42,7 @@ types.Float.prototype.dump = function() {
 }
 
 types.String = function (mem, val) {
+  this.type = 'String'
   this.memory = mem
   this.val = val
 }
@@ -46,7 +50,17 @@ types.String.prototype.dump = function() {
   return '"'+this.val+'"'
 }
 
+types.Boolean = function (mem, val) {
+  this.type = 'Boolean'
+  this.memory = mem
+  this.val = val
+}
+types.Boolean.prototype.dump = function() {
+  return this.val+''
+}
+
 types.List = function (mem, headPtr, tailPtr) {
+  this.type = 'List'
   this.memory = mem
   this.head = headPtr
   this.tail = tailPtr
@@ -59,6 +73,7 @@ types.List.prototype.dump = function(recurse) {
 }
 
 types.Actor = function(mem, parentCtx, args, nodes) {
+  this.type = 'Actor'
   this.parentContext = parentCtx
   this.memory = mem
   this.args = args
@@ -91,6 +106,7 @@ types.Actor.prototype.dump = function() {
 }
 
 types.NativeActor = function(mem, parentCtx, fn) {
+  this.type = 'NativeActor'
   this.memory = mem
   this.parentContext = parentCtx
   this.actor = fn
@@ -214,6 +230,9 @@ Context.prototype.quote = function(node) {
   try {
     switch(node.node) {
       case 'IDENTIFIER':
+        if(node.value == 'true') return this.typeFactory('Boolean', true)
+        if(node.value == 'false') return this.typeFactory('Boolean', false)
+        if(node.value == 'nil') return 0
         return this.typeFactory('Symbol', node.value)
 
       case 'INTEGER':
@@ -250,7 +269,11 @@ Context.prototype.quasiquote = function(node, continuation) {
     switch(node.node) {
       case 'QUASIQUOTE_INTERP':
         return this.execute(node.children[0], true, continuation)
+
       case 'IDENTIFIER':
+        if(node.value == 'true') return this.typeFactory('Boolean', true)
+        if(node.value == 'false') return this.typeFactory('Boolean', false)
+        if(node.value == 'nil') return 0
         return this.typeFactory('Symbol', node.value)
 
       case 'INTEGER':
@@ -296,6 +319,9 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
         throw new Error('Cannot interpolate when not in quasiquoting context')
 
       case 'IDENTIFIER':
+        if(node.value == 'true') return this.typeFactory('Boolean', true)
+        if(node.value == 'false') return this.typeFactory('Boolean', false)
+        if(node.value == 'nil') return 0
         return this.resolveName(node.value)
 
       case 'INTEGER':

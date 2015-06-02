@@ -117,6 +117,31 @@ var library = module.exports = function(ctx) {
 
     return interpreter(code, newCtx, 'eval')
   })
+  
+  defineActor('=', function eval(ctx, msgPtr) {
+    var args = ctx.memory.get(msgPtr)
+
+    var firstVal = ctx.memory.get(args.head)
+      , tail = ctx.memory.get(args.tail)
+      , secondVal = ctx.memory.get(tail.head)
+
+    var condition = firstVal.type === secondVal.type
+                    && typeof(firstVal.val) !== 'undefined'
+                    && typeof(secondVal.val) !== 'undefined' 
+                    && firstVal.val === secondVal.val
+    return ctx.typeFactory('Boolean', condition)
+  })
+  
+  defineActor('==', function eval(ctx, msgPtr) {
+    var args = ctx.memory.get(msgPtr)
+
+    var firstVal = args.head
+      , tail = ctx.memory.get(args.tail)
+      , secondVal = tail.head
+
+    var condition = firstPtr === secondPtr
+    return ctx.typeFactory('Boolean', condition)
+  })
 
   defineActor('map', function(ctx, msgPtr) {
     var args = toArray(ctx, msgPtr)
