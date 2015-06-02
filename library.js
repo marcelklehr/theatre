@@ -1,6 +1,6 @@
 var interpreter = require('./interpreter')
 
-module.exports = function(ctx) {
+var library = module.exports = function(ctx) {
   function defineActor(name, fn) {
     ctx.bindName(name, ctx.typeFactory('NativeActor', ctx, fn))
   }
@@ -98,15 +98,24 @@ module.exports = function(ctx) {
     return argsPtr
   })
 
-  defineActor('set', function set(ctx, args) {
-    args = ctx.memory.get(args)
+  defineActor('set', function set(ctx, msgPtr) {
+    var args = ctx.memory.get(msgPtr)
 
-    symbol = ctx.memory.get(args.head)
+    var symbol = ctx.memory.get(args.head)
     var tail = ctx.memory.get(args.tail)
     var valuePtr = tail.head
     ctx.caller.ctx.bindName(symbol.val, valuePtr)
 
     return valuePtr
+  })
+
+  defineActor('eval', function eval(ctx, msgPtr) {
+    var args = ctx.memory.get(msgPtr)
+
+    var code = ctx.memory.get(args.head).val
+      , newCtx = new interpreter.Context(ctx, ctx)
+
+    return interpreter(code, newCtx, 'eval')
   })
 
   defineActor('map', function(ctx, msgPtr) {
@@ -144,30 +153,30 @@ module.exports = function(ctx) {
 
     return resPtr
   })
-  
+
   defineActor('head', function(ctx, msgPtr) {
     var list = ctx.memory.get(ctx.memory.get(msgPtr).head)
-    
+
     if(!list || !(list instanceof interpreter.types.List)) {
       throw new Error('Expected list as first argument')
     }
 
     return list.head
   })
-  
+
   defineActor('tail', function(ctx, msgPtr) {
     var list = ctx.memory.get(ctx.memory.get(msgPtr).head)
-    
+
     if(!list || !(list instanceof interpreter.types.List)) {
       throw new Error('Expected list as first argument')
     }
 
     return list.tail
   })
-  
+
   defineActor('concat', function(ctx, msgPtr) {
     var list = toArray(ctx, msgPtr)
-    
+
     var string = ""
     list.forEach(function(ptr) {
       string += ctx.memory.get(ptr).val
