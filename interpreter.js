@@ -372,6 +372,19 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
           this.callActor(actor, args, {ctx: this, node: node})
           return 0 // stops execution of current continuation
         } else
+        // IF
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'if') {
+          if(!node.children[1] || !node.children[2] || !node.children[3]) throw new Error('Argument(s) missing. "if" expects 3 arguments')
+          var cond = this.memory.get(this.execute(node.children[1]))
+
+          if(cond.type !== 'Boolean') throw new Error('First argument to "if" must be of type Boolean')
+
+          if(cond.val) {
+            return this.execute(node.children[2])
+          }else {
+            return this.execute(node.children[3])
+          }
+        } else
         // ACTOR CALL
         if(node.children[0]) {
           var listPtr = 0
