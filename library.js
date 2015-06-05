@@ -143,6 +143,15 @@ var library = module.exports = function(ctx) {
     return ctx.typeFactory('Boolean', condition)
   })
 
+  defineActor('!', function eval(ctx, msgPtr) {
+    var args = ctx.memory.get(msgPtr)
+
+    var firstVal = ctx.memory.get(args.head)
+    if(firstVal.type != 'Boolean') throw new Error('Argument must be of type Boolean')
+
+    return ctx.typeFactory('Boolean', !firstVal.val)
+  })
+
   defineActor('map', function(ctx, msgPtr) {
     var args = toArray(ctx, msgPtr)
     var mapperFn = this.memory.get(args[0])
