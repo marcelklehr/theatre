@@ -20,7 +20,7 @@ types.Symbol = function (mem, str) {
   this.val = str
 }
 types.Symbol.prototype.dump = function() {
-  return '\''+this.val
+  return ''+this.val
 }
 
 types.Integer = function (mem, val) {
@@ -67,9 +67,42 @@ types.List = function (mem, headPtr, tailPtr) {
 }
 types.List.prototype.dump = function(recurse) {
   if(!this.head) return '()'
-  var d = this.memory.get(this.head).dump(true)+(this.tail? ' '+this.memory.get(this.tail).dump(true) : '')
+  var d = this.memory.get(this.head).dump()+(this.tail? ' '+this.memory.get(this.tail).dump(true) : '')
   if(!recurse) d = '( '+d+' )'
   return d
+}
+
+types.Macro = function(mem, parentCtx, args, nodes) {
+  this.type = 'Macro'
+  this.parentContext = parentCtx
+  this.memory = mem
+  this.args = args
+  this.nodes = nodes
+}
+types.Macro.prototype.receive = function(msgPtr, caller) {
+  var ctx = new Context(this.parentContext, caller)
+    , list = this.memory.get(msgPtr)
+
+  // Get actor arguments
+  var args = []
+  while(list.head) {
+    args.push(list.head)
+    list = this.memory.get(list.tail)
+  }
+
+  // Check arity
+  if(args.length != this.args.length) {
+    throw new Error('Expected '+this.args.length+' arguments, but got '+args.length)
+  }
+
+  args.forEach(function(ptr, i) {
+    ctx.bindName(this.args[i], ptr)
+  }.bind(this))
+
+  return Continuation.run(ctx, this.nodes, /*enableThrow:*/true)
+}
+types.Macro.prototype.dump = function() {
+  return '<macro>'
 }
 
 types.Actor = function(mem, parentCtx, args, nodes) {
@@ -363,6 +396,25 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
           var actor = this.typeFactory('Actor', this, args, node.children.slice(2))
           return actor
         } else
+        // defmacro
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'defmacro') {
+          if(!node.children[3]) throw new Error('Argument missing. "defmacro" expects 3 arguments')
+          
+          var identifier = node.children[1].value
+          if(!identifier) throw new types.Error('"defmacro" expects first argument to be of type Symbol', node.children[1].loc, this.getStack(), 1)
+          
+          var args = []
+          if(node.children[2] && node.children[2].children) {
+            args = node.children[2].children.map(function(n) {
+              if(n.node != 'IDENTIFIER') throw new types.Error('Parameters of macro definition mst be identifiers', n.loc, this.getStack(), 1)
+              return n.value
+            }.bind(this))
+          }else throw new Error('defmacro expects a list of paramters')
+
+          var macro = this.typeFactory('Macro', this, args, node.children.slice(3))
+          this.bindName(identifier, macro)
+          return macro
+        } else
         // CALLCC
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'callcc') {
           if(!node.children[1]) throw new Error('Argument missing. "callcc" expects 1 argument')
@@ -388,7 +440,22 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
         // ACTOR CALL
         if(node.children[0]) {
           var listPtr = 0
-          , itemPtr
+          , itemPtr = this.execute(node.children[0], true)
+          
+          // Macro call
+          var macro
+          if((macro = this.memory.get(itemPtr)) instanceof types.Macro) {
+            for(var i=node.children.length-1; i>=0; i--) {
+              itemPtr = this.quote(node.children[i], true)
+              listPtr = this.typeFactory('List', itemPtr, listPtr)
+            }
+          
+            var args = this.memory.get(listPtr).tail
+            var expandedPtr = macro.receive(args, /*caller:*/{ctx: this, node: node})
+            var expanded = this.memory.get(expandedPtr).dump()
+            var tree = parse(expanded, node.loc+'>expanded')
+            return Continuation.run(this, tree, true)
+          }
 
           for(var i=node.children.length-1; i>=0; i--) {
             itemPtr = this.execute(node.children[i], true, new Continuation(this, node.children, i))
@@ -398,6 +465,7 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
 
           var args = this.memory.get(listPtr).tail
 
+          // Continuation call
           var cont
           if((cont = this.memory.get(itemPtr)) instanceof Continuation) {
             return cont.play()
