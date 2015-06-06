@@ -152,6 +152,12 @@ var library = module.exports = function(ctx) {
     return ctx.typeFactory('Boolean', !firstVal.val)
   })
 
+  defineActor('proc', function eval(ctx, msgPtr) {
+    var args = toArray(ctx, msgPtr)
+
+    return args[args.length-1]
+  })
+
   defineActor('map', function(ctx, msgPtr) {
     var args = toArray(ctx, msgPtr)
     var mapperFn = this.memory.get(args[0])
