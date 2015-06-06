@@ -262,6 +262,15 @@ Context.prototype.getStack = function() {
 Context.prototype.quote = function(node) {
   try {
     switch(node.node) {
+      case 'QUOTE':
+        return this.typeFactory('List', this.typeFactory('Symbol', 'quote'), this.quote(node.children[0]))
+
+      case 'QUASIQUOTE':
+        return this.typeFactory('List', this.typeFactory('Symbol', 'quasiquote'), this.quote(node.children[0]))
+
+      case 'QUASIQUOTE_INTERP':
+        return this.typeFactory('List', this.typeFactory('Symbol', 'unquote'), this.quote(node.children[0]))
+
       case 'IDENTIFIER':
         if(node.value == 'true') return this.typeFactory('Boolean', true)
         if(node.value == 'false') return this.typeFactory('Boolean', false)
@@ -278,6 +287,19 @@ Context.prototype.quote = function(node) {
         return this.typeFactory('String', node.value)
 
       case 'LIST':
+        // QUOTE
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quote') {
+          return this.typeFactory('List', this.typeFactory('Symbol', 'quote'), this.quote(node.children[1]))
+        }else
+        // QUASIQUOTE
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quasiquote') {
+          return this.typeFactory('List', this.typeFactory('Symbol', 'quasiquote'), this.quote(node.children[1]))
+        }else
+        // UNQUOTE
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'unquote') {
+          return this.typeFactory('List', this.typeFactory('Symbol', 'unquote'), this.quote(node.children[1]))
+        }
+
         var listPtr = 0
         , itemPtr
 
@@ -300,6 +322,12 @@ Context.prototype.quote = function(node) {
 Context.prototype.quasiquote = function(node, continuation) {
   try {
     switch(node.node) {
+      case 'QUOTE':
+        return this.typeFactory('List', this.typeFactory('Symbol', 'quote'), this.quasiquote(node.children[0], continuation))
+
+      case 'QUASIQUOTE':
+        return this.typeFactory('List', this.typeFactory('Symbol', 'quasiquote'), this.quote(node.children[0]))
+
       case 'QUASIQUOTE_INTERP':
         return this.execute(node.children[0], true, continuation)
 
@@ -319,6 +347,19 @@ Context.prototype.quasiquote = function(node, continuation) {
         return this.typeFactory('String', node.value)
 
       case 'LIST':
+        // QUOTE
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quote') {
+          return this.typeFactory('List', this.typeFactory('Symbol', 'quote'), this.quasiquote(node.children[1], continuation))
+        }else
+        // QUASIQUOTE
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quasiquote') {
+          return this.typeFactory('List', this.typeFactory('Symbol', 'quasiquote'), this.quote(node.children[1]))
+        }else
+        // UNQUOTE
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'unquote') {
+          return this.execute(node.children[1], true, continuation)
+        }
+        
         var listPtr = 0
         , itemPtr
 
@@ -371,6 +412,10 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
         // QUOTE
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quote') {
           return this.quote(node.children[1])
+        }else
+        // QUASIQUOTE
+        if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'quasiquote') {
+          return this.quasiquote(node.children[1])
         }else
         // LIST
         if(node.children[0] && node.children[0].node =='IDENTIFIER' && node.children[0].value == 'list') {
@@ -432,9 +477,9 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
           if(cond.type !== 'Boolean') throw new Error('First argument to "if" must be of type Boolean')
 
           if(cond.val) {
-            return this.execute(node.children[2])
+            return this.execute(node.children[2], true)
           }else {
-            return this.execute(node.children[3])
+            return this.execute(node.children[3], true)
           }
         } else
         // ACTOR CALL
