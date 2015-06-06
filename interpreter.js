@@ -182,8 +182,8 @@ function Continuation(ctx, nodes, index) {
 Continuation.prototype.dump = function() {
   return '<continuation:'+this.nodes[this.index].loc+'>'
 }
-Continuation.prototype.play = function() {
-  return Continuation.run(this.ctx, this.nodes.slice(this.index+1))
+Continuation.prototype.play = function(enableThrow) {
+  return Continuation.run(this.ctx, this.nodes.slice(this.index+1), enableThrow)
 }
 Continuation.run = function(ctx, nodes, enableThrow) {
   var ret
@@ -513,7 +513,7 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
           // Continuation call
           var cont
           if((cont = this.memory.get(itemPtr)) instanceof Continuation) {
-            return cont.play()
+            return cont.play(true)
           }
 
           return this.callActor(itemPtr, args, /*caller:*/{ctx: this, node: node})
