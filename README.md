@@ -62,10 +62,29 @@ and check out...
 (Here, we put the current status away into our pocket, `counter` returns `3` -- so far so good.
 Now to the crazy part: we call that continuation in our pocket, and *magic*: we're inside that `counter` function again and return `4`.  And the same again: `5`. Continuations ftw!) 
 
+### macros
+```
 
+(defmacro until (cond body)
+  `((lambda()
+      (set 'cc 0)
+      (callcc (lambda(c)(set 'cc c)))
+      ,body
+      (if (! ,cond) (cc) nil)
+      ))
+  )
+
+(set 'i 0)
+(until (= i 10)
+  (proc 
+    (set 'i (+ i 1))
+    (print i)
+    )
+  )
+```
+(A macro is different from a function (or `lambda`) in that it doesn't evaluate its arguments, instead it takes the AST representation of the arguments and returns a new new AST tree, that is, new code, which is then evaluated. Here we use the power of continuations to implement an `until` loop. Notice how the macro inserts `cond` and `body` at the respective places in the code)
 
 ## to-do
-* macros
 * static type system + type inference
 
 ## legal
