@@ -66,7 +66,7 @@ types.List = function (mem, headPtr, tailPtr) {
   this.tail = tailPtr
 }
 types.List.prototype.dump = function(recurse) {
-  if(!this.head) return '()'
+  if(!this.head && !this.tail) return '()'
   var d = this.memory.get(this.head).dump()+(this.tail? ' '+this.memory.get(this.tail).dump(true) : '')
   if(!recurse) d = '( '+d+' )'
   return d
