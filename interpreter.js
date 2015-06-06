@@ -517,7 +517,8 @@ Context.prototype.execute = function(node, enableThrow, continuation) {
           }
 
           return this.callActor(itemPtr, args, /*caller:*/{ctx: this, node: node})
-        }
+        }else
+        if(!node.children.length) return 0
     }
   }catch(e) {
     if(enableThrow && !e.jsError) throw(new types.Error(e.message, node.loc, this.getStack(), e))
